@@ -16,9 +16,9 @@ from mistralai.client import Mistral
 from datetime import datetime, timezone, date
 
 from src.posts.models import (
-    DialogMessage, LlmExtractResponse, NextQuestionResponse, 
-    PreferenceContextDto, MessageType, ImpactAreaDto, Award, 
-    OfferCategory, BestPractiseCategory, ThematicFocusDto, Intent
+    DialogMessage, LlmExtractResponse, NextQuestionResponse,
+    PreferenceContextDto, MessageType, ImpactAreaDto, Award,
+    OfferCategory, BestPractiseCategory, ThematicFocusDto, Intent, SDG
 )
 from src.services.geo_matcher import geocode_location
 from src.util.timezone_mapper import to_iso_with_timezone
@@ -43,7 +43,7 @@ Erlaubte messageTypes:
 GREETING: Wenn der Benutzer ohne Angabe von Präferenzen eine Begrüßung schreibt.
 CHITCHAT: Small Talk oder nicht zuordnungbare Nachrichten, insbesondere wenn kein intent erkannt wurde
 HELP: Wenn der Nutzer explizit um Hilfe bittet oder Fragen zum Portal hat.
-ANSWER: Wenn der Benutzer auf eine Frage vom Bot anwortet die nicht fragt, ob der Benutzer suchen will
+ANSWER: Wenn der Benutzer auf eine konkrete Rückfrage des Bots antwortet und dabei einen Wert, eine Auswahl oder eine Präferenz ergänzt. Dies gilt auch dann, wenn die Bot-Frage zusätzlich erwähnt, dass die Suche bereits gestartet werden könnte. Entscheidend ist, dass der Benutzer inhaltlich auf die gestellte Frage antwortet und nicht ausdrücklich den Start der Suche bestätigt.
 PREFERENCE_UPDATE: Wenn eine Präferenz aktualisiert wird, bevorzuge diesen messageType immer gegenüber ANSWER, auch wenn es sich um eine Antwort auf eine Bot-Frage handelt, z. B. "Nein, ich möchte nicht online suchen, sondern vor Ort."
 CONFIRMATION: Wenn der Benutzer einer Suche zustimmt.
 REFINE_SEARCH: Wenn der Benutzer seine Suche verfeinern möchte.
@@ -80,6 +80,7 @@ Regeln:
 - Keine Beschreibung offener oder noch fehlender Präferenzen
 - Wenn der bestehende Titel weiterhin grob passt, übernehme ihn unverändert
 - Wenn kein sinnvoller neuer Kontext erkennbar ist, übernehme ihn unverändert
+- Wenn nicht ausdrücklich nach einer Präferenz gefragt wurde, bzw. der benutzer nicht klar definiert, welches Präferenz das ist, ausume nichts 
 - Wenn im gesamten Chat kein sinnvoller Kontext erkennbar ist, setze:
   title = null
   
@@ -156,7 +157,9 @@ Beispiele:
 Regeln:
 - Wenn nur Smalltalk/Begrüßung vorkommt, shouldExtractSlots = false.
 - Erfinde keine Werte.
-- Ort nur setzen, wenn ein Ort ausdrücklich genannt wurde.
+- Ort nur setzen, wenn ein Ort ausdrücklich genannt wurde, korrigiere Rechtschriebung des Ortes 
+- Ort wird strukturiert erfasst: city (Stadt), state (Bundesland), country (Land), optional radius (km)
+- Latitude/Longitude sind optional und werden durch Geocoding gefüllt
 - Datum im Format YYYY-MM-DD.
 - Wenn Datum erkannt, Datum muss in der Zukunft liegen (ab heute), sonst period.start = heute.
 - Wenn kein Datum erkennbar ist: period.start = null, period.end = null.
@@ -174,6 +177,11 @@ Regeln:
 - Wenn nur eine Start-Uhrzeit genannt wird, setze endTime = null.
 - Wenn ein Angebot dauerhaft/permanent ist, setze period.permanent = true, sonst null.
 
+Location-Format (strukturiert):
+- location ist ein Objekt mit: city, state, country, latitude, longitude, radius
+- Wenn Ort nicht erkannt wird, setze location = null
+- radius ist optional (in km), wenn vorhanden
+
 Erlaubte handledFields Werte:
 INTENT, LOCATION, ONLINE, PERIOD, SDGS, THEMATIC_FOCUS, IMPACT_AREA, AWARDS, OFFER_CATEGORY, BEST_PRACTISE_CATEGORY
 
@@ -185,13 +193,18 @@ Wichtig:
 
 JSON-Format:
 {{ 
-  "title:" null,
+  "title": null,
   "messageType": "....",
   "shouldExtractSlots": true,
   "intent": null,
-  "location": null,
-  "latitude": null,
-  "longitude": null,
+  "location": {{
+    "city": null,
+    "state": null,
+    "country": null,
+    "latitude": null,
+    "longitude": null,
+    "radius": null
+  }},
   "online": null,
   "period": {{
     "start": null,
@@ -273,15 +286,21 @@ def extract_with_mistral(
         result.period.end = to_iso_with_timezone(result.period.end)
 
     # ── Geocoding: if location was found ──
-    if result.location:
-        geo = geocode_location(result.location)
+    if result.location and result.location.city:
+        # Geocode mit Stadt-Name
+        geo = geocode_location(result.location.city)
         if geo:
-            print(f"📍 Geocoded '{result.location}' → {geo['name']} ({geo['latitude']}, {geo['longitude']})")
-            result.location = geo["name"]
-            result.latitude = geo["latitude"]
-            result.longitude = geo["longitude"]
+            if geo.get("city"):
+                result.location.city = geo["city"]
+            if geo.get("state"):
+                result.location.state = geo["state"]
+            if geo.get("country"):
+                result.location.country = geo["country"]
+            result.location.latitude = geo["latitude"]
+            result.location.longitude = geo["longitude"]
+            print(f"📍 Geocoded '{result.location.city}' → {result.location.state}, {result.location.country} ({geo['latitude']}, {geo['longitude']})")
         else:
-            print(f"⚠️ Geocoding failed for '{result.location}'")
+            print(f"⚠️ Geocoding failed for '{result.location.city}'")
     return result
 
 
@@ -295,15 +314,6 @@ SDG_LABELS: Dict[int, str] = {
     13: "Klimaschutz", 14: "Leben unter Wasser",
     15: "Leben an Land", 16: "Frieden & Gerechtigkeit",
     17: "Globale Partnerschaften",
-}
-
-# QuickReply-Vorschläge je Slot
-_QUICK_REPLIES: Dict[str, list[str]] = {
-    "ONLINE": ["Online", "Vor Ort", "Beides ist okay"],
-    "LOCATION": ["In meiner Nähe", "Deutschlandweit", "Online"],
-    "PERIOD": ["Heute", "Diese Woche", "Nächste Woche", "Diesen Monat"],
-    "SDGS": ["Klima", "Bildung", "Energie", "Gleichstellung", "Alle Themen"],
-    "INTENT": ["Veranstaltungen", "Organisationen", "Angebote"],
 }
 
 
@@ -320,9 +330,15 @@ def _build_known_preferences_text(prefs: PreferenceContextDto) -> str:
         lines.append(f"- Der Nutzer sucht {intent_labels.get(prefs.intent, prefs.intent)}.")
 
     if prefs.location:
-        # Kurzname: erstes Komma-Segment
-        short_loc = prefs.location.split(",")[0].strip()
-        lines.append(f"- Ort: {short_loc}")
+        loc_parts = []
+        if prefs.location.city:
+            loc_parts.append(prefs.location.city)
+        if prefs.location.state:
+            loc_parts.append(prefs.location.state)
+        if prefs.location.country:
+            loc_parts.append(prefs.location.country)
+        loc_text = ", ".join(loc_parts) if loc_parts else "Unbekannt"
+        lines.append(f"- Ort: {loc_text}")
 
     if prefs.online is True:
         lines.append("- Format: Online")
@@ -382,18 +398,13 @@ def _get_enum_quick_replies(missing_field: str, sample_size: int = 2) -> List[st
     
     Format: <fieldName_camelCase>.<optionValue_camelCase>
     Beispiel: "impactArea.local", "impactArea.regional"
-    
-    Args:
-        missing_field: Feldname (z.B. "IMPACT_AREA", "AWARDS")
-        sample_size: Anzahl der zufällig zu wählenden Optionen (default: 2)
-    
-    Returns:
-        Liste von Quick-Reply-Strings im Format <field>.<option>
+
     """
     field_normalized = normalize_slot_field(missing_field)
     
     # Mapping von Field-Namen zu Enum-Klassen
     enum_map: Dict[str, type[Enum]] = {
+        "SDGS": SDG,
         "IMPACT_AREA": ImpactAreaDto,
         "AWARDS": Award,
         "OFFER_CATEGORY": OfferCategory,
@@ -420,7 +431,7 @@ def _get_enum_quick_replies(missing_field: str, sample_size: int = 2) -> List[st
     
     # Formatierung: fieldName_camelCase.optionValue_camelCase
     field_camel = _to_camel_case(field_normalized)
-    reply_strings = [f"{field_camel}.{_to_camel_case(opt)}" for opt in selected]
+    reply_strings = [f"response.quickReplies.{field_camel}.{_to_camel_case(opt)}" for opt in selected]
     
     print(f"📋 Generated quick replies for {field_normalized}: {reply_strings}")
     return reply_strings
@@ -434,9 +445,9 @@ def normalize_slot_field(field: str) -> str:
 def generate_next_question(
         missing_field: str,
         message: MessageType,
-        readyForSearch: bool,
+        ready_for_search: bool,
         preferences: PreferenceContextDto,
-        dialogContext: List[DialogMessage]
+        dialog_context: List[DialogMessage]
 ) -> NextQuestionResponse:
     """Generiert via Mistral eine natürlichsprachige Rückfrage für den fehlenden Slot."""
 
@@ -446,7 +457,7 @@ def generate_next_question(
 
     dialog_text = "\n".join([
         f"[{msg.sender}]: {msg.message}"
-        for msg in dialogContext if msg.message
+        for msg in dialog_context if msg.message
     ])
 
     prompt = f"""\
@@ -497,10 +508,11 @@ JSON-Format:
     data = json.loads(content)
     answer = data.get("answer", f"Was möchtest du zu {field_label} angeben?")
 
-    if readyForSearch:
+    if ready_for_search:
         answer += " Ich kann die Suche auch jetzt schon starten."
 
     # Generiere Quick Replies basierend auf Enum-Werten
+    print("MISSING FIELD:", missing_field)
     quick_replies = _get_enum_quick_replies(missing_field, sample_size=2)
 
     if preferences.period.start is not None:

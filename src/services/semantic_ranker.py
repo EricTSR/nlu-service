@@ -3,6 +3,7 @@ Semantic Ranking Service für Items basierend auf Suchpräferenzen.
 Rangiert Kandidaten durch semantische Ähnlichkeit zwischen Query und Beschreibung.
 """
 
+import logging
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -11,6 +12,8 @@ from src.posts.models import (
     NluRankItemDto
 )
 from src.services.model_loader import get_model
+
+logger = logging.getLogger(__name__)
 
 
 # SDG-Labels für natürlichsprachige Query-Konstruktion
@@ -81,10 +84,14 @@ def build_ranking_query(request: SemanticRankRequestDto) -> str:
         if theme:
             parts.append(theme)
     
-    # 4. Location (nur Stadt-Name)
+    # 4. Location
     if request.preferences.location:
-        location_short = request.preferences.location.split(",")[0].strip()
-        parts.append(location_short)
+        if request.preferences.location.city:
+            parts.append(request.preferences.location.city)
+        if request.preferences.location.country:
+            parts.append(request.preferences.location.state)
+        if request.preferences.location.country:
+            parts.append(request.preferences.location.country)
     
     # 5. Online/Vor Ort
     if request.preferences.online is not None:
@@ -108,7 +115,7 @@ def build_ranking_query(request: SemanticRankRequestDto) -> str:
             parts.append(impact_map[impact_key])
     
     query = normalize_text(" ".join(parts))
-    print(f"🔍 Optimized Query: '{query}'")
+    logger.debug(f"🔍 Optimized Query: '{query}'")
     return query
 
 
@@ -208,8 +215,8 @@ def rank_semantically(request: SemanticRankRequestDto) -> SemanticRankResponseDt
             semanticScore=normalize_similarity(final_score)
         ))
         
-        print(f"📊 Candidate {candidate.id}: main={scores['main']:.3f}, "
-              f"chunks={scores['chunks']:.3f} → total={final_score:.3f}")
+        logger.debug(f"📊 Candidate {candidate.id}: main={scores['main']:.3f}, "
+                     f"chunks={scores['chunks']:.3f} → total={final_score:.3f}")
 
     # Sortiere nach Score (descending)
     results.sort(key=lambda item: item.semanticScore, reverse=True)

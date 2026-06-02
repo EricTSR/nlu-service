@@ -3,6 +3,17 @@ from fastapi import FastAPI, status
 from src.api.routes_nlu import router as nlu_router
 from src.api.routes_semantic import router as semantic_router
 from src.posts.models import HealthCheck
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s"
+)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(levelname)s:%(name)s:%(message)s"
+)
 
 app = FastAPI(
     title="NLU Service",

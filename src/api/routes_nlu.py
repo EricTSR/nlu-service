@@ -32,9 +32,9 @@ def next_question(request: NextQuestionRequest) -> NextQuestionResponse:
     result = generate_next_question(
         missing_field=request.missingField,
         message=request.message,
-        readyForSearch=request.readyForSearch,
+        ready_for_search=request.readyForSearch,
         preferences=request.preferences,
-        dialogContext=request.dialogContext,
+        dialog_context=request.dialogContext,
     )
     print("📤 Next question response:", result.model_dump_json(indent=2))
     return result

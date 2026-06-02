@@ -32,6 +32,7 @@ class MessageType(str, Enum):
     REJECTION = "REJECTION"
     REFINE_SEARCH = "REFINE_SEARCH"
     EXIT = "EXIT"
+    ERROR = "ERROR"
 
 
 class PeriodDto(BaseModel):
@@ -97,6 +98,24 @@ class SlotFields(str, Enum):
     OFFER_CATEGORY = "OFFER_CATEGORY"
     BEST_PRACTISE_CATEGORY = "BEST_PRACTISE_CATEGORY"
 
+class SDG(str, Enum):
+    GOAL_1  = "Keine Armut"
+    GOAL_2  = "Kein Hunger"
+    GOAL_3  = "Gesundheit und Wohlergehen"
+    GOAL_4  = "Hochwertige Bildung"
+    GOAL_5  = "Geschlechtergleichheit"
+    GOAL_6  = "Sauberes Wasser und Sanitäreinrichtungen"
+    GOAL_7  = "Bezahlbare und saubere Energie"
+    GOAL_8  = "Menschenwürdige Arbeit und Wirtschaftswachstum"
+    GOAL_9  = "Industrie, Innovation und Infrastruktur"
+    GOAL_10 = "Weniger Ungleichheiten"
+    GOAL_11 = "Nachhaltige Städte und Gemeinden"
+    GOAL_12 = "Nachhaltige/r Konsum und Produktion"
+    GOAL_13 = "Maßnahmen zum Klimaschutz"
+    GOAL_14 = "Leben unter Wasser"
+    GOAL_15 = "Leben an Land"
+    GOAL_16 = "Frieden, Gerechtigkeit und starke Institutionen"
+    GOAL_17 = "Partnerschaften zur Erreichung der Ziele"
 
 class ImpactAreaDto(str, Enum):
     LOCAL = "LOCAL"
@@ -128,11 +147,19 @@ class BestPractiseCategory(str, Enum):
     OTHER = "OTHER"
 
 
-class PreferenceContextDto(BaseModel):
-    intent: Optional[str] = None
-    location: Optional[str] = None
+class LocationFilterDto(BaseModel):
+    """Strukturierte Location mit Adresskomponenten und Geokoordinaten."""
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    radius: Optional[float] = None  # in km
+
+
+class PreferenceContextDto(BaseModel):
+    intent: Optional[str] = None
+    location: Optional[LocationFilterDto] = None
     online: Optional[bool] = None
     period: PeriodDto = Field(default_factory=PeriodDto)
     sdgs: List[int] = Field(default_factory=list)
@@ -166,9 +193,7 @@ class LlmExtractResponse(BaseModel):
     messageType: MessageType
     shouldExtractSlots: bool
     intent: Optional[str] = None
-    location: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    location: Optional[LocationFilterDto] = None
     online: Optional[bool] = None
     period: PeriodDto = Field(default_factory=PeriodDto)
     sdgs: List[int] = Field(default_factory=list)
