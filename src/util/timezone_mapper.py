@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 GERMAN_TZ = ZoneInfo("Europe/Berlin")

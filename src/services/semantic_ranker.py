@@ -5,11 +5,10 @@ Rangiert Kandidaten durch semantische Ähnlichkeit zwischen Query und Beschreibu
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from typing import List
 
 from src.posts.models import (
     SemanticRankRequestDto, SemanticRankResponseDto, 
-    NluRankItemDto, PreferenceContextDto
+    NluRankItemDto
 )
 from src.services.model_loader import get_model
 
@@ -52,18 +51,6 @@ THEMATIC_LABELS = {
 def build_ranking_query(request: SemanticRankRequestDto) -> str:
     """
     Konstruiert eine natürlichsprachige Query aus Dialog und Präferenzen.
-    
-    Statt numerisch/technisch:
-    "SDGs: 13, 12 Ort: Leipzig Online: true"
-    
-    Besser natürlichsprachig:
-    "Klimaschutz Nachhaltiger Konsum Leipzig online"
-    
-    Args:
-        request: SemanticRankRequestDto mit Präferenzen und Dialog
-    
-    Returns:
-        Natürlichsprachige Query für Embedding
     """
     parts = []
     
@@ -135,18 +122,6 @@ def calculate_chunk_similarity(
     
     Nutzung: Wenn Beschreibung lang ist (> 200 Zeichen),
     könnte ein einzelner Satz perfekt zur Query passen.
-    
-    Beispiel:
-    - Text: "Intro text... [Perfekt passender Satz]. ...Outro..."
-    - Diese Funktion findet den besten Satz und gewichtet ihn.
-    
-    Args:
-        query_embedding: Embedding des Query-Textes
-        text: Kandidaten-Beschreibung
-        model: SentenceTransformer Modell
-    
-    Returns:
-        Gewichtete Ähnlichkeit zwischen Query und Text-Chunks
     """
     # Teile in Sätze
     sentences = [
@@ -189,28 +164,17 @@ def rank_semantically(request: SemanticRankRequestDto) -> SemanticRankResponseDt
     Strategie:
     - 70% Haupttext-Ähnlichkeit
     - 30% Chunk-Ähnlichkeit (bei langen Texten)
-    
-    Args:
-        request: SemanticRankRequestDto mit Kandidaten und Präferenzen
-    
-    Returns:
-        SemanticRankResponseDto mit geordneten Ergebnissen
     """
     if not request.candidates:
         return SemanticRankResponseDto(results=[])
 
     model = get_model()
-
-    # Baue natürlichsprachige Query
     query_text = build_ranking_query(request)
-    
-    # Normalisiere Kandidaten-Beschreibungen
+
     candidate_texts = [
         normalize_text(candidate.description)
         for candidate in request.candidates
     ]
-
-    # Encodiere Query und Kandidaten
     query_embedding = model.encode([query_text])[0]
     candidate_embeddings = model.encode(candidate_texts)
 
@@ -256,12 +220,6 @@ def rank_semantically(request: SemanticRankRequestDto) -> SemanticRankResponseDt
 def normalize_text(value: str | None) -> str:
     """
     Normalisierung: Whitespace entfernen und vereinheitlichen.
-    
-    Args:
-        value: Text zu normalisieren
-    
-    Returns:
-        Normalisierter Text
     """
     if not value:
         return ""
