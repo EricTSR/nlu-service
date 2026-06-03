@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from mistralai.client import Mistral
 from datetime import datetime, timezone, date
 
-from src.posts.models import (
+from src.schemas import (
     DialogMessage, LlmExtractResponse, NextQuestionResponse,
     PreferenceContextDto, MessageType, ImpactAreaDto, Award,
     OfferCategory, BestPractiseCategory, ThematicFocusDto, Intent, SDG

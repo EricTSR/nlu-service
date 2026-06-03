@@ -7,7 +7,7 @@ import logging
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-from src.posts.models import (
+from src.schemas.semantic import (
     SemanticRankRequestDto, SemanticRankResponseDto, 
     NluRankItemDto
 )

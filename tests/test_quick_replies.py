@@ -4,7 +4,7 @@ Test für automatische Quick-Reply-Generierung aus Enums.
 
 import pytest
 from src.services.llm_extractor import _to_camel_case, _get_enum_quick_replies
-from src.posts.models import ImpactAreaDto, Award, Intent, OfferCategory
+from src.schemas.enums import ImpactAreaDto, Award, Intent, OfferCategory
 
 
 class TestCamelCaseConversion:

@@ -13,8 +13,6 @@ def geocode_location(location_name: Optional[str]) -> Optional[Dict[str, Any]]:
     Geocodiert einen Ort und gibt strukturierte Adresskomponenten zurück.
     Gibt None zurück, wenn kein Ort übergeben oder kein Ort gefunden wurde.
     """
-
-
     if not location_name or not location_name.strip():
         return None
 

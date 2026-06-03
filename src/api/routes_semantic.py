@@ -2,7 +2,7 @@ import logging
 import time
 from fastapi import APIRouter
 
-from src.posts.models import SemanticRankResponseDto, SemanticRankRequestDto
+from src.schemas.semantic import SemanticRankResponseDto, SemanticRankRequestDto
 from src.services.semantic_ranker import rank_semantically
 
 logger = logging.getLogger(__name__)

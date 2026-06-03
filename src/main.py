@@ -2,7 +2,7 @@ from fastapi import FastAPI, status
 
 from src.api.routes_nlu import router as nlu_router
 from src.api.routes_semantic import router as semantic_router
-from src.posts.models import HealthCheck
+from src.schemas.health import HealthCheck
 import logging
 
 logging.basicConfig(
