@@ -1,6 +1,6 @@
 """
-Semantic Ranking Service für Items basierend auf Suchpräferenzen.
-Rangiert Kandidaten durch semantische Ähnlichkeit zwischen Query und Beschreibung.
+Semantic Ranking Service für Items basierend auf Benutzer-Keywords.
+Rangiert Kandidaten durch semantische Ähnlichkeit zwischen Nutzertext und Beschreibung.
 """
 
 import logging
@@ -15,106 +15,34 @@ from src.services.model_loader import get_model
 
 logger = logging.getLogger(__name__)
 
-
-# SDG-Labels für natürlichsprachige Query-Konstruktion
-SDG_LABELS = {
-    1: "Armut", 2: "Hunger", 3: "Gesundheit", 4: "Bildung",
-    5: "Gleichstellung", 6: "Wasser", 7: "Saubere Energie",
-    8: "Menschenwürdige Arbeit", 9: "Innovation", 10: "Ungleichheiten",
-    11: "Nachhaltige Städte", 12: "Nachhaltiger Konsum", 13: "Klimaschutz",
-    14: "Leben im Wasser", 15: "Leben an Land", 16: "Frieden", 17: "Partnerschaften"
-}
-
-# Thematic Focus Labels
-THEMATIC_LABELS = {
-    "CLIMATE_PROTECTION": "Klimaschutz",
-    "EDUCATION": "Bildung",
-    "CIRCULAR_ECONOMY": "Kreislaufwirtschaft",
-    "BIODIVERSITY": "Biodiversität",
-    "SUSTAINABLE_FINANCE": "Nachhaltige Finanzen",
-    "HUMAN_RIGHTS": "Menschenrechte",
-    "GENDER_EQUITY": "Gleichstellung",
-    "PARTICIPATION": "Beteiligung",
-    "SUSTAINABLE_BUILDING": "Nachhaltiges Bauen",
-    "SUSTAINABLE_BUSINESS": "Nachhaltiges Wirtschaften",
-    "SOCIAL_JUSTICE": "Soziale Gerechtigkeit",
-    "AGRICULTURE": "Landwirtschaft",
-    "MOBILITY": "Mobilität",
-    "PEACE": "Frieden",
-    "INTERNATIONAL_RESPONSIBILITY": "Internationale Verantwortung",
-    "CULTURAL_SOCIAL_CHANGE": "Kultureller Wandel",
-    "SPORT": "Sport",
-    "URBAN_DEVELOPMENT": "Stadtentwicklung",
-    "TOURISM": "Tourismus",
-    "DIGITALIZATION": "Digitalisierung",
-    "OTHER": "Sonstiges",
-}
+MAIN_SIM_WEIGHT = 0.4
+CHUNK_SIM_WEIGHT = 0.6
+TOP_K_CHUNKS = 3
 
 
 def build_ranking_query(request: SemanticRankRequestDto) -> str:
     """
-    Konstruiert eine natürlichsprachige Query aus Dialog und Präferenzen.
+    Konstruiert eine Query ausschließlich aus Benutzertext.
+
     """
-    parts = []
-    
-    # 1. Dialog-Nachrichten (aktueller User-Intent)
-    messages = [
-        message.message
-        for message in request.dialogContext
-        if getattr(message, "message", None) and len(message.message) > 5
-    ]
-    if messages:
-        parts.append(messages[0])  # Nur wichtigste Message
-    
-    # 2. SDGs (als Label, nicht Zahlen)
-    if request.preferences.sdgs:
-        sdg_text = " ".join(
-            SDG_LABELS.get(sdg, f"SDG{sdg}") for sdg in request.preferences.sdgs
-        )
-        parts.append(sdg_text)
-    
-    # 3. Thematic Focus
-    if request.preferences.thematicFocus:
-        theme = THEMATIC_LABELS.get(
-            request.preferences.thematicFocus.value 
-            if hasattr(request.preferences.thematicFocus, 'value')
-            else str(request.preferences.thematicFocus),
-            ""
-        )
-        if theme:
-            parts.append(theme)
-    
-    # 4. Location
-    if request.preferences.location:
-        if request.preferences.location.city:
-            parts.append(request.preferences.location.city)
-        if request.preferences.location.country:
-            parts.append(request.preferences.location.state)
-        if request.preferences.location.country:
-            parts.append(request.preferences.location.country)
-    
-    # 5. Online/Vor Ort
-    if request.preferences.online is not None:
-        format_word = "online" if request.preferences.online else "vor Ort"
-        parts.append(format_word)
-    
-    # 6. Impact Area
-    if request.preferences.impactArea:
-        impact_map = {
-            "LOCAL": "lokal",
-            "REGIONAL": "regional",
-            "STATE": "landesweit",
-            "COUNTRY": "bundesweit",
-            "CONTINENT": "europaweit",
-            "WORLD": "global"
-        }
-        impact_key = request.preferences.impactArea.value \
-            if hasattr(request.preferences.impactArea, 'value') \
-            else str(request.preferences.impactArea)
-        if impact_key in impact_map:
-            parts.append(impact_map[impact_key])
-    
-    query = normalize_text(" ".join(parts))
+    user_messages = []
+    fallback_messages = []
+
+    for dialog_message in request.dialogContext:
+        print(dialog_message)
+        message_text = normalize_text(getattr(dialog_message, "message", None))
+        if len(message_text) <= 1:
+            continue
+
+        fallback_messages.append(message_text)
+
+        sender = getattr(dialog_message, "sender", None)
+        if isinstance(sender, str) and sender.upper() == "USER":
+            user_messages.append(message_text)
+
+    source_messages = user_messages or fallback_messages
+    query = normalize_text(" ".join(dict.fromkeys(source_messages)))
+
     logger.debug(f"🔍 Optimized Query: '{query}'")
     return query
 
@@ -157,26 +85,37 @@ def calculate_chunk_similarity(
         chunk_embeddings
     )[0]
     
-    # Kombiniere: 70% Durchschnitt + 30% Bestes Match
-    avg_sim = float(np.mean(similarities))
-    top_sim = float(np.max(similarities))
-    
-    return (0.7 * avg_sim) + (0.3 * top_sim)
+    # Fokus auf die besten Treffer statt den Durchschnitt über alle Sätze.
+    top_k = min(TOP_K_CHUNKS, len(similarities))
+    top_k_similarities = np.sort(similarities)[-top_k:]
+    return float(np.mean(top_k_similarities))
 
 
-def rank_semantically(request: SemanticRankRequestDto) -> SemanticRankResponseDto:
+def rank_semantically(
+        request: SemanticRankRequestDto
+) -> SemanticRankResponseDto:
     """
     Rangiert Kandidaten basierend auf semantischer Ähnlichkeit.
     
     Strategie:
-    - 70% Haupttext-Ähnlichkeit
-    - 30% Chunk-Ähnlichkeit (bei langen Texten)
+    - 40% Haupttext-Ähnlichkeit
+    - 60% Top-Chunk-Ähnlichkeit (bei langen Texten)
     """
     if not request.candidates:
         return SemanticRankResponseDto(results=[])
 
-    model = get_model()
+    print("req", request)
     query_text = build_ranking_query(request)
+    if not query_text:
+        logger.info("Keine Benutzer-Keywords im Dialogkontext gefunden - alle Kandidaten erhalten Score 0.0")
+        return SemanticRankResponseDto(
+            results=[
+                NluRankItemDto(id=candidate.id, semanticScore=0.0)
+                for candidate in request.candidates
+            ]
+        )
+
+    model = get_model()
 
     candidate_texts = [
         normalize_text(candidate.description)
@@ -192,21 +131,21 @@ def rank_semantically(request: SemanticRankRequestDto) -> SemanticRankResponseDt
     ):
         scores = {}
         
-        # Score 1: Haupt-Text Similarity (70%)
+        # Score 1: Haupt-Text Similarity (40%)
         main_sim = float(cosine_similarity(
             query_embedding.reshape(1, -1),
             cand_embedding.reshape(1, -1)
         )[0][0])
-        scores['main'] = main_sim * 0.7
+        scores['main'] = main_sim * MAIN_SIM_WEIGHT
         
-        # Score 2: Chunked Similarity für längere Texte (30%)
+        # Score 2: Chunked Similarity für längere Texte (60%)
         if len(cand_text) > 200:
             chunk_sim = calculate_chunk_similarity(
                 query_embedding, cand_text, model
             )
-            scores['chunks'] = chunk_sim * 0.3
+            scores['chunks'] = chunk_sim * CHUNK_SIM_WEIGHT
         else:
-            scores['chunks'] = main_sim * 0.3
+            scores['chunks'] = main_sim * CHUNK_SIM_WEIGHT
         
         final_score = sum(scores.values())
         

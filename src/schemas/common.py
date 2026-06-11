@@ -53,6 +53,7 @@ class PreferenceContextDto(BaseModel):
     bestPractiseCategory: Optional[BestPractiseCategory] = None
     confidence: Optional[float] = None
     handledFields: Set[SlotFields] = Field(default_factory=set)
+    pendingField: Optional[SlotFields] = None
 
 
 class DialogMessage(BaseModel):

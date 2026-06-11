@@ -40,7 +40,7 @@ class LlmExtractResponse(BaseModel):
 
 
 class NextQuestionRequest(BaseModel):
-    missingField: Optional[str] = None
+    missingField: Optional[SlotFields] = None
     message: MessageType
     readyForSearch: bool
     preferences: PreferenceContextDto

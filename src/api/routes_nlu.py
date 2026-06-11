@@ -1,12 +1,17 @@
 import logging
 
 from fastapi import APIRouter
+
+from services.extraction_service import ExtractionService
+from services.question_service import QuestionService
 from src.schemas.nlu import NluExtractRequest, LlmExtractResponse, NextQuestionRequest, NextQuestionResponse
-from src.services.llm_extractor import extract_with_mistral, generate_next_question
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/nlu", tags=["NLU"])
+
+extraction_service = ExtractionService()
+question_service = QuestionService()
 
 
 @router.post(
@@ -16,9 +21,8 @@ router = APIRouter(prefix="/api/v1/nlu", tags=["NLU"])
 )
 def extract_nlu(request: NluExtractRequest) -> LlmExtractResponse:
     logger.debug("Incoming request: %s", request.model_dump())
-    result = extract_with_mistral(
+    result = extraction_service.extract(
         message=request.message,
-        title=request.title,
         dialog_context=request.dialogContext,
         preferences=request.preferences,
     )
@@ -33,7 +37,7 @@ def extract_nlu(request: NluExtractRequest) -> LlmExtractResponse:
 )
 def next_question(request: NextQuestionRequest) -> NextQuestionResponse:
     logger.debug("Next question request: missingField=%s", request.missingField)
-    result = generate_next_question(
+    result = question_service.generate_next_question(
         missing_field=request.missingField,
         message=request.message,
         ready_for_search=request.readyForSearch,
