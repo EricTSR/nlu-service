@@ -28,8 +28,6 @@ class QuestionService:
             preferences=preferences
         )
 
-        print(f"❓ NextQuestion request: missingField={missing_field}")
-
         data = self.client.complete_json(
             messages=[
                 {"role": "system", "content": "Du bist ein freundlicher Assistent auf einem Nachhaltigkeitsportal."},

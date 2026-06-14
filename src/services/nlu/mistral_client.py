@@ -2,6 +2,7 @@ import json
 import os
 from mistralai.client import Mistral
 from dotenv import load_dotenv
+from mistralai.client.models import ResponseFormat
 
 from src.config import MISTRAL_MODEL
 
@@ -20,7 +21,7 @@ class MistralJsonClient:
             model=MISTRAL_MODEL,
             messages=messages,
             temperature=temperature,
-            response_format={"type": "json_object"},
+            response_format=ResponseFormat(type="json_object"),
         )
 
         content = response.choices[0].message.content
