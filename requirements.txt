@@ -1,0 +1,9 @@
+fastapi[standard]~=0.136.0
+geopy~=2.4.1
+mistralai~=2.4.5
+pydantic~=2.13.1
+python-dotenv~=1.2.2
+sentence-transformers~=5.1.1
+spacy~=3.8.14
+
+de_core_news_md @ https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.8.0/de_core_news_md-3.8.0-py3-none-any.whl
