@@ -38,7 +38,7 @@ source .venv/bin/activate
 Anschließend können die benötigten Abhängigkeiten installiert werden:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 ## Umgebungsvariablen
