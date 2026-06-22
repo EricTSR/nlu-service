@@ -1,7 +1,7 @@
 from typing import List, Dict
 
-from schemas import MessageType, PreferenceContextDto, DialogMessage, SlotFields
-from services.nlu.preference_context_builder import build_known_preferences_text
+from src.schemas import MessageType, PreferenceContextDto, DialogMessage, SlotFields
+from src.services.nlu.preference_context_builder import build_known_preferences_text
 
 _FIELD_LABELS: Dict[str, str] = {
     "ONLINE": "Online/Vor-Ort",

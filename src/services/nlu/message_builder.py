@@ -1,6 +1,6 @@
 from typing import Optional
 
-from services.prompts.nlu_extraction_prompt import build_nlu_system_prompt
+from src.services.prompts.nlu_extraction_prompt import build_nlu_system_prompt
 from src.schemas import DialogMessage, PreferenceContextDto
 from src.services.nlu.preference_context_builder import build_known_preferences_text
 

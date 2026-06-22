@@ -2,7 +2,7 @@ import random
 from enum import Enum
 from typing import List, Dict
 
-from schemas import SDG, ImpactAreaDto, Award, OfferCategory, BestPractiseCategory, ThematicFocusDto, Intent, SlotFields
+from src.schemas import SDG, ImpactAreaDto, Award, OfferCategory, BestPractiseCategory, ThematicFocusDto, Intent, SlotFields
 
 
 def _to_camel_case(snake_str: str) -> str:

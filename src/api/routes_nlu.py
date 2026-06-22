@@ -2,8 +2,8 @@ import logging
 
 from fastapi import APIRouter
 
-from services.extraction_service import ExtractionService
-from services.question_service import QuestionService
+from src.services.extraction_service import ExtractionService
+from src.services.question_service import QuestionService
 from src.schemas.nlu import NluExtractRequest, LlmExtractResponse, NextQuestionRequest, NextQuestionResponse
 
 logger = logging.getLogger(__name__)

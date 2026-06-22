@@ -1,11 +1,11 @@
 from typing import List
 
-from config import MISTRAL_QUESTION_TEMP
-from schemas import MessageType, PreferenceContextDto, DialogMessage, NextQuestionResponse, SlotFields
-from services.prompts.nlu_question_prompt import build_nlu_question_prompt
+from src.config import MISTRAL_QUESTION_TEMP
+from src.schemas import MessageType, PreferenceContextDto, DialogMessage, NextQuestionResponse, SlotFields
+from src.services.prompts.nlu_question_prompt import build_nlu_question_prompt
 from src.services.nlu.mistral_client import MistralJsonClient
-from util.timezone_mapper import ensure_utc_iso
-from util.translator_mapper import get_enum_quick_replies
+from src.util.timezone_mapper import ensure_utc_iso
+from src.util.translator_mapper import get_enum_quick_replies
 
 
 class QuestionService:

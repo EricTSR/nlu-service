@@ -4,9 +4,9 @@ Erkennt messageType, intent, Ort, Datum, SDGs aus Freitext.
 Generiert kontextbezogene Rückfragen für fehlende Slots.
 """
 
-from services.nlu.extraction_postprocessor import postprocess_extraction
-from services.nlu.message_builder import build_chat_messages
-from services.nlu.mistral_client import MistralJsonClient
+from src.services.nlu.extraction_postprocessor import postprocess_extraction
+from src.services.nlu.message_builder import build_chat_messages
+from src.services.nlu.mistral_client import MistralJsonClient
 from src.schemas import LlmExtractResponse
 
 
