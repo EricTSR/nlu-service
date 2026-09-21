@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from src.schemas.enums import (
     Award,
     BestPractiseCategory,
     ImpactAreaDto,
+    Intent,
     MessageType,
     OfferCategory,
     SlotFields,
@@ -15,6 +16,10 @@ from src.schemas.enums import (
 
 
 class PeriodDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    _TIME_PATTERN = r"^(?:[01]\d|2[0-3]):[0-5]\d$"
+
     @field_validator("start", "end", mode="before")
     @classmethod
     def convert_timestamp(cls, value: Any) -> Any:
@@ -24,10 +29,27 @@ class PeriodDto(BaseModel):
             return datetime.fromtimestamp(value).isoformat()
         return value
 
+    @field_validator("start_time", "end_time", mode="before")
+    @classmethod
+    def normalize_time(cls, value: Any) -> Any:
+        if isinstance(value, str) and len(value) == 8 and value[5:] == ":00":
+            return value[:5]
+        return value
+
     start: str | None = Field(None)
     end: str | None = Field(None)
-    start_time: str | None = Field(None)
-    end_time: str | None = Field(None)
+    start_time: str | None = Field(
+        default=None,
+        pattern=_TIME_PATTERN,
+        validation_alias=AliasChoices("startTime", "start_time"),
+        serialization_alias="startTime",
+    )
+    end_time: str | None = Field(
+        default=None,
+        pattern=_TIME_PATTERN,
+        validation_alias=AliasChoices("endTime", "end_time"),
+        serialization_alias="endTime",
+    )
     permanent: bool | None = Field(False)
 
 
@@ -41,7 +63,7 @@ class LocationFilterDto(BaseModel):
 
 
 class PreferenceContextDto(BaseModel):
-    intent: str | None = None
+    intent: Intent | None = None
     location: LocationFilterDto | None = None
     online: bool | None = None
     period: PeriodDto = Field(default_factory=PeriodDto)
@@ -57,7 +79,13 @@ class PreferenceContextDto(BaseModel):
 
 
 class DialogMessage(BaseModel):
-    number: int | None = None
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("id", "number"),
+        serialization_alias="id",
+    )
     message: str | None = None
     sender: str | None = None
     quickReplies: list[str] | None = None

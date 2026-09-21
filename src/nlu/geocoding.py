@@ -2,11 +2,12 @@ import logging
 from difflib import SequenceMatcher
 from typing import Any
 
+from geopy.exc import GeopyError
 from geopy.geocoders import Nominatim
 
 logger = logging.getLogger(__name__)
 
-geolocator = Nominatim(user_agent="gwn_recommender")
+geolocator = Nominatim(user_agent="gwn_recommender", timeout=3)
 
 
 def similarity(a: str, b: str) -> float:
@@ -23,12 +24,16 @@ def geocode_location(location_name: str | None) -> dict[str, Any] | None:
 
     original_location_name = location_name.strip()
 
-    location = geolocator.geocode(
-        location_name,
-        addressdetails=True,
-        exactly_one=True,
-        country_codes="de",
-    )
+    try:
+        location = geolocator.geocode(
+            location_name,
+            addressdetails=True,
+            exactly_one=True,
+            country_codes="de",
+        )
+    except GeopyError:
+        logger.warning("Geocoding unavailable; continuing without coordinates")
+        return None
 
     if not location:
         return None

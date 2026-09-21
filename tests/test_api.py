@@ -1,6 +1,7 @@
 from typing import Any
 
 import numpy as np
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -8,6 +9,12 @@ from src.api.dependencies import (
     get_embedding_model_provider,
     get_extraction_service,
     get_question_service,
+)
+from src.nlu.errors import (
+    NluProviderRateLimitError,
+    NluProviderResponseError,
+    NluProviderTimeoutError,
+    NluProviderUnavailableError,
 )
 from src.schemas import (
     LlmExtractResponse,
@@ -90,8 +97,8 @@ def test_next_question_contract(client: TestClient) -> None:
             "period": {
                 "start": None,
                 "end": None,
-                "start_time": None,
-                "end_time": None,
+                "startTime": None,
+                "endTime": None,
                 "permanent": False,
             },
             "sdgs": [],
@@ -146,3 +153,42 @@ def test_api_paths_and_methods_are_stable(client: TestClient) -> None:
     assert set(paths["/api/v1/nlu/extract"]) == {"post"}
     assert set(paths["/api/v1/nlu/next-question"]) == {"post"}
     assert set(paths["/api/v1/semantic/rank"]) == {"post"}
+
+
+def test_extract_rejects_blank_messages(client: TestClient) -> None:
+    response = client.post("/api/v1/nlu/extract", json={"message": "   "})
+
+    assert response.status_code == 422
+
+
+class FailingExtractionService:
+    def __init__(self, exception: Exception) -> None:
+        self.exception = exception
+
+    def extract(self, **_: Any) -> LlmExtractResponse:
+        raise self.exception
+
+
+@pytest.mark.parametrize(
+    ("exception", "status_code", "code"),
+    [
+        (NluProviderTimeoutError(), 504, "NLU_PROVIDER_TIMEOUT"),
+        (NluProviderRateLimitError(), 429, "NLU_PROVIDER_RATE_LIMITED"),
+        (NluProviderUnavailableError(), 503, "NLU_PROVIDER_UNAVAILABLE"),
+        (NluProviderResponseError(), 502, "NLU_PROVIDER_INVALID_RESPONSE"),
+    ],
+)
+def test_provider_errors_have_stable_public_contract(
+    client: TestClient,
+    exception: Exception,
+    status_code: int,
+    code: str,
+) -> None:
+    app = client.app
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_extraction_service] = lambda: FailingExtractionService(exception)
+
+    response = client.post("/api/v1/nlu/extract", json={"message": "Klimaschutz"})
+
+    assert response.status_code == status_code
+    assert response.json() == {"code": code}

@@ -1,10 +1,14 @@
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 from src.schemas.common import DialogMessage, LocationFilterDto, PeriodDto, PreferenceContextDto
 from src.schemas.enums import (
     Award,
     BestPractiseCategory,
+    DialogLocale,
     ImpactAreaDto,
+    Intent,
     MessageType,
     OfferCategory,
     SlotFields,
@@ -13,17 +17,31 @@ from src.schemas.enums import (
 
 
 class NluExtractRequest(BaseModel):
-    message: str
-    dialogContext: list[DialogMessage] = Field(default_factory=list)
+    message: str = Field(min_length=1, max_length=2000)
+    dialogContext: list[DialogMessage] = Field(default_factory=list, max_length=100)
     title: str | None = None
     preferences: PreferenceContextDto = Field(default_factory=PreferenceContextDto)
+    locale: DialogLocale = DialogLocale.DE
+
+    @field_validator("message")
+    @classmethod
+    def message_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message must not be blank")
+        return value
 
 
 class LlmExtractResponse(BaseModel):
+    @field_validator("period", mode="before")
+    @classmethod
+    def normalize_null_period(cls, value: Any) -> Any:
+        return {} if value is None else value
+
     title: str | None = None
     messageType: MessageType
     shouldExtractSlots: bool
-    intent: str | None = None
+    intent: Intent | None = None
     location: LocationFilterDto | None = None
     online: bool | None = None
     period: PeriodDto = Field(default_factory=PeriodDto)
@@ -42,7 +60,8 @@ class NextQuestionRequest(BaseModel):
     message: MessageType
     readyForSearch: bool
     preferences: PreferenceContextDto
-    dialogContext: list[DialogMessage] = Field(default_factory=list)
+    dialogContext: list[DialogMessage] = Field(default_factory=list, max_length=100)
+    locale: DialogLocale = DialogLocale.DE
 
 
 class NextQuestionResponse(BaseModel):

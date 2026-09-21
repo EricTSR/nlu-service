@@ -1,7 +1,10 @@
 """Orchestrierung der LLM-basierten Slot-Extraktion."""
 
+from pydantic import ValidationError
+
 from src.core.config import Settings, get_settings
 from src.nlu.client import MistralJsonClient
+from src.nlu.errors import NluProviderResponseError
 from src.nlu.messages import build_chat_messages
 from src.nlu.postprocessing import postprocess_extraction
 from src.schemas import DialogMessage, LlmExtractResponse, PreferenceContextDto
@@ -21,11 +24,13 @@ class ExtractionService:
         message: str,
         dialog_context: list[DialogMessage] | None = None,
         preferences: PreferenceContextDto | None = None,
+        locale: str = "de",
     ) -> LlmExtractResponse:
         messages = build_chat_messages(
             message=message,
             dialog_context=dialog_context,
             preferences=preferences,
+            locale=locale,
         )
 
         data = self.client.complete_json(
@@ -33,6 +38,10 @@ class ExtractionService:
             temperature=self.settings.mistral_extract_temperature,
         )
 
-        result = LlmExtractResponse(**data)
-        return postprocess_extraction(result)
-
+        try:
+            result = LlmExtractResponse(**data)
+            return postprocess_extraction(result)
+        except (ValidationError, ValueError) as exception:
+            raise NluProviderResponseError(
+                "Mistral-Antwort verletzt den NLU-Vertrag"
+            ) from exception

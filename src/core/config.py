@@ -17,11 +17,13 @@ class Settings(BaseSettings):
     mistral_model: str = "ministral-8b-2512"
     mistral_extract_temperature: float = 0.0
     mistral_question_temperature: float = 0.3
+    mistral_timeout_seconds: float = 40.0
 
     def require_mistral_api_key(self) -> str:
         if self.mistral_api_key is None:
             raise RuntimeError("MISTRAL_API_KEY nicht gesetzt. Bitte in .env eintragen")
         return self.mistral_api_key.get_secret_value()
+
 
 @lru_cache
 def get_settings() -> Settings:

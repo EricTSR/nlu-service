@@ -20,6 +20,7 @@ def build_nlu_question_prompt(
     message: MessageType,
     preferences: PreferenceContextDto,
     dialog_context: list[DialogMessage],
+    locale: str = "de",
 ) -> str:
     known_text = build_known_preferences_text(preferences)
 
@@ -33,11 +34,13 @@ def build_nlu_question_prompt(
     dialog_text = "\n".join(
         [f"[{msg.sender}]: {msg.message}" for msg in dialog_context if msg.message]
     )
+    answer_language = "Englisch" if locale == "en" else "Deutsch"
     return f"""\
     
 Du formulierst die nächste Rückfrage für einen Suchdialog auf einem Nachhaltigkeitsportal.
 
 Regeln:
+- Formuliere das answer-Feld ausschließlich auf {answer_language}.
 - Stelle genau eine kurze, freundliche Frage.
 - Keine technischen Begriffe (kein "Slot", kein "SDG", kein "Parameter").
 - Keine neuen Fakten erfinden.

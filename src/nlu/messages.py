@@ -7,9 +7,10 @@ def build_chat_messages(
     message: str,
     dialog_context: list[DialogMessage] | None,
     preferences: PreferenceContextDto | None,
+    locale: str = "de",
 ) -> list[dict[str, str]]:
     messages = [
-        {"role": "system", "content": build_nlu_system_prompt()},
+        {"role": "system", "content": build_nlu_system_prompt(locale)},
     ]
 
     if preferences:

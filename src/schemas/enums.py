@@ -7,6 +7,11 @@ class Intent(str, Enum):
     SEARCH_ACTIVITIES = "SEARCH_ACTIVITIES"
 
 
+class DialogLocale(str, Enum):
+    DE = "de"
+    EN = "en"
+
+
 class Award(str, Enum):
     INITIATOR = "INITIATOR"
     AWARD = "AWARD"

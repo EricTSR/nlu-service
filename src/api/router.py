@@ -8,4 +8,3 @@ api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(nlu_router)
 api_router.include_router(semantic_router)
-

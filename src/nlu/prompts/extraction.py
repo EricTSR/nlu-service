@@ -4,7 +4,8 @@ from zoneinfo import ZoneInfo
 _DE_TZ = ZoneInfo("Europe/Berlin")
 
 
-def build_nlu_system_prompt() -> str:
+def build_nlu_system_prompt(locale: str = "de") -> str:
+    title_language = "Englisch" if locale == "en" else "Deutsch"
     return f"""\
 Du bist ein NLU-Extraktor für ein Nachhaltigkeitsportal.
 
@@ -153,14 +154,14 @@ User: "Global"
    dann setze messageType = PREFERENCE_UPDATE.
 
 4. Wenn der Benutzer auf eine konkrete Slot-Frage mit:
-   "Nein", "egal", "keine", "nicht wichtig" oder ähnlichem antwortet,
+   "Nein", "egal", "keine", "nicht wichtig", "überspringen", "skip" oder ähnlichem antwortet,
    dann ist dies als Antwort auf diesen Slot zu interpretieren.
 
 In diesem Fall:
 - messageType = ANSWER
 - der entsprechende Slot bleibt leer oder wird auf null / [] gesetzt
 - das Feld wird in handledFields aufgenommen
-- nicht CONFIRMATION setzen
+- nicht CONFIRMATION oder REJECTION setzen
 
 5. Wenn die letzte Bot-Nachricht fragt:
    "Welches Attribut deiner Suche möchtest du verfeinern?",
@@ -204,11 +205,12 @@ Location:
 - Wenn kein Ort erkannt wird, setze location = null.
 
 Period:
+- period muss immer ein Objekt sein und darf niemals null sein.
 - period.start und period.end müssen im Format YYYY-MM-DDTHH:mm:ssZ ausgegeben werden.
 - Wenn ein Datum erkannt wird, setze period.start und period.end auf dieses Datum.
 - Wenn ein Datum in der Vergangenheit liegt, setze period.start auf heute.
-- Wenn kein Datum erkennbar ist, setze period.start = null und period.end = null.
-- start_time und end_time enthalten ausschließlich Uhrzeiten im Format HH:mm:ss.
+- Wenn kein Datum erkennbar ist, gib das period-Objekt mit period.start = null und period.end = null aus.
+- startTime und endTime enthalten ausschließlich Uhrzeiten im Format HH:mm.
 - Wenn nur eine Startzeit genannt wird, setze end_time = null.
 - Wenn ein Angebot dauerhaft oder permanent ist, setze period.permanent = true.
 - Andernfalls setze period.permanent = null.
@@ -329,6 +331,7 @@ Titel-Regeln
 Erstelle einen kurzen, prägnanten Titel für den Chat basierend auf dem aktuellsten inhaltlichen Kontext.
 
 Regeln:
+- Schreibe den Titel ausschließlich auf {title_language}.
 - Maximal 5 Wörter
 - Nur relevante Schlagwörter verwenden
 - Keine Füllwörter
@@ -368,8 +371,8 @@ Antworte immer exakt in diesem Format:
   "period": {{
     "start": null,
     "end": null,
-    "start_time": null,
-    "end_time": null,
+    "startTime": null,
+    "endTime": null,
     "permanent": null
   }},
   "sdgs": [],

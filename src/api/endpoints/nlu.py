@@ -24,13 +24,14 @@ def extract_nlu(
     request: NluExtractRequest,
     extraction_service: ExtractionServiceDep,
 ) -> LlmExtractResponse:
-    logger.debug("Incoming request: %s", request.model_dump())
+    logger.debug("Incoming extract request with %d context entries", len(request.dialogContext))
     result = extraction_service.extract(
         message=request.message,
         dialog_context=request.dialogContext,
         preferences=request.preferences,
+        locale=request.locale.value,
     )
-    logger.debug("Response: %s", result.model_dump_json(indent=2))
+    logger.debug("Extract response type: %s", result.messageType)
     return result
 
 
@@ -50,6 +51,7 @@ def next_question(
         ready_for_search=request.readyForSearch,
         preferences=request.preferences,
         dialog_context=request.dialogContext,
+        locale=request.locale.value,
     )
-    logger.debug("Next question response: %s", result.model_dump_json(indent=2))
+    logger.debug("Next question generated with %d quick replies", len(result.quickReplies))
     return result

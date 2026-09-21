@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
+from src.api.errors import register_exception_handlers
 from src.api.router import api_router
 
 logging.basicConfig(
@@ -16,6 +17,7 @@ def create_application() -> FastAPI:
         version="1.0.0",
         description="NLU microservice for intent matching and preference extraction.",
     )
+    register_exception_handlers(application)
     application.include_router(api_router)
     return application
 
