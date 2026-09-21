@@ -1,9 +1,7 @@
-from typing import List, Dict
+from src.nlu.preferences import build_known_preferences_text
+from src.schemas import DialogMessage, MessageType, PreferenceContextDto, SlotFields
 
-from src.schemas import MessageType, PreferenceContextDto, DialogMessage, SlotFields
-from src.services.nlu.preference_context_builder import build_known_preferences_text
-
-_FIELD_LABELS: Dict[str, str] = {
+_FIELD_LABELS: dict[str, str] = {
     "ONLINE": "Online/Vor-Ort",
     "LOCATION": "Ort",
     "PERIOD": "Zeitraum",
@@ -16,13 +14,13 @@ _FIELD_LABELS: Dict[str, str] = {
     "BEST_PRACTISE_CATEGORY": "Best-Practise-Kategorie",
 }
 
-def build_nlu_question_prompt(
-        missing_field: SlotFields,
-        message: MessageType,
-        preferences: PreferenceContextDto,
-        dialog_context: List[DialogMessage]
-) -> str:
 
+def build_nlu_question_prompt(
+    missing_field: SlotFields | None,
+    message: MessageType,
+    preferences: PreferenceContextDto,
+    dialog_context: list[DialogMessage],
+) -> str:
     known_text = build_known_preferences_text(preferences)
 
     if missing_field is not None:
@@ -32,10 +30,9 @@ def build_nlu_question_prompt(
     else:
         missing_field_text = ""
 
-    dialog_text = "\n".join([
-        f"[{msg.sender}]: {msg.message}"
-        for msg in dialog_context if msg.message
-    ])
+    dialog_text = "\n".join(
+        [f"[{msg.sender}]: {msg.message}" for msg in dialog_context if msg.message]
+    )
     return f"""\
     
 Du formulierst die nächste Rückfrage für einen Suchdialog auf einem Nachhaltigkeitsportal.

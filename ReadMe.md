@@ -1,31 +1,30 @@
 # NLU Service
 
-Dieser Microservice erweitert die Plattform um Funktionen zur Verarbeitung natürlicher Sprache und zur semantischen Sortierung von Suchergebnissen.
+FastAPI-Microservice für ein deutsches Nachhaltigkeitsportal. Er bietet:
 
-Der Service basiert auf **FastAPI** und stellt unter anderem Endpunkte für folgende Funktionen bereit:
-
-* Extraktion von Intentionen und Benutzerpräferenzen
-* Generierung kontextabhängiger Rückfragen
-* Semantisches Ranking von Suchergebnissen
-* Überprüfung des Service-Status
+* strukturierte Intent- und Präferenzextraktion über Mistral,
+* kontextabhängige Rückfragen,
+* deutsches Orts-Geocoding über Nominatim/OSM,
+* semantisches Ranking über SentenceTransformers.
 
 ## Voraussetzungen
 
-Für die Ausführung werden folgende Komponenten benötigt:
-
-* Python 3.11 oder neuer
+* Python 3.12 oder neuer
 * `pip`
-* Zugriff auf das konfigurierte Mistral-Sprachmodell
+* `MISTRAL_API_KEY` für die beiden NLU-Endpunkte
+* Netzwerkzugriff für Mistral, Nominatim und den initialen Download des Embedding-Modells
+
+Health Check, App-Import und Tests benötigen weder API-Key noch Netzwerk.
 
 ## Installation
 
-Zunächst sollte eine virtuelle Python-Umgebung erstellt werden.
-
-### Windows
+### Windows PowerShell
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
 ```
 
 ### Linux und macOS
@@ -33,141 +32,105 @@ python -m venv .venv
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
 ```
 
-Anschließend können die benötigten Abhängigkeiten installiert werden:
-
-```bash
-python -m pip install -e .
-```
-
-## Umgebungsvariablen
-
-Für die Ausführung wird eine `.env`-Datei benötigt.
-
-Die verwendete `.env`-Datei befindet sich auf dem zusammen mit der Bachelorarbeit abgegebenen USB-Datenträger. Sie ist nicht Bestandteil des öffentlichen Repositorys, da sie sensible Konfigurationswerte und Zugangsdaten enthalten kann.
-
-Die Datei muss im Stammverzeichnis des Projekts abgelegt werden:
-
-```text
-nlu-service/
-├── .env
-├── requirements.txt
-└── src/
-    └── main.py
-```
-
-Die `.env`-Datei darf nicht in das öffentliche Repository eingecheckt werden. Sie sollte daher in der `.gitignore` enthalten sein:
-
-```gitignore
-.env
-```
+Anschließend `MISTRAL_API_KEY` in der lokalen `.env` setzen. `.env` ist git-ignoriert und darf
+nicht committed werden.
 
 ## Anwendung starten
 
-Der Microservice kann aus dem Stammverzeichnis des Projekts mit folgendem Befehl gestartet werden:
+Der FastAPI-Einstiegspunkt ist in `pyproject.toml` konfiguriert:
 
 ```powershell
-fastapi dev .\src\main.py
+fastapi dev
 ```
 
-Unter Linux oder macOS kann alternativ folgender Pfad verwendet werden:
+Alternativ:
 
-```bash
-fastapi dev ./src/main.py
+```powershell
+python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
-Standardmäßig ist die Anwendung anschließend unter folgender Adresse erreichbar:
+Swagger UI: <http://127.0.0.1:8000/docs>
 
-```text
-http://127.0.0.1:8000
-```
+ReDoc: <http://127.0.0.1:8000/redoc>
 
-## API-Dokumentation
+## API
 
-FastAPI stellt automatisch eine interaktive API-Dokumentation bereit.
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/health` | Liveness-Check |
+| `POST` | `/api/v1/nlu/extract` | Intent und Präferenzen extrahieren |
+| `POST` | `/api/v1/nlu/next-question` | Nächste Dialogfrage erzeugen |
+| `POST` | `/api/v1/semantic/rank` | Kandidaten semantisch sortieren |
 
-Swagger UI:
+Die bestehenden DTOs und camelCase-Feldnamen sind Teil des externen API-Vertrags.
 
-```text
-http://127.0.0.1:8000/docs
-```
-
-ReDoc:
-
-```text
-http://127.0.0.1:8000/redoc
-```
-
-## API-Endpunkte
-
-### Health Check
-
-```http
-GET /health
-```
-
-Überprüft, ob der Microservice erreichbar und funktionsfähig ist.
-
-### NLU-Extraktion
-
-```http
-POST /api/v1/nlu/extract
-```
-
-Analysiert eine Benutzernachricht und extrahiert unter anderem die erkannte Intention, den Nachrichtentyp und vorhandene Suchpräferenzen.
-
-### Generierung der nächsten Frage
-
-```http
-POST /api/v1/nlu/next-question
-```
-
-Generiert abhängig vom bisherigen Dialog, den bekannten Präferenzen und dem noch fehlenden Feld eine passende Rückfrage.
-
-### Semantisches Ranking
-
-```http
-POST /api/v1/semantic/rank
-```
-
-Sortiert übergebene Kandidaten anhand ihrer semantischen Ähnlichkeit zu den Suchpräferenzen des Benutzers.
-
-## Projektstruktur
+## Architektur
 
 ```text
 src/
+├── main.py
 ├── api/
-│   ├── routes_nlu.py
-│   └── routes_semantic.py
+│   ├── router.py
+│   ├── dependencies.py
+│   └── endpoints/
+│       ├── health.py
+│       ├── nlu.py
+│       └── semantic.py
+├── core/
+│   └── config.py
 ├── schemas/
-│   ├── health.py
-│   ├── nlu.py
-│   └── semantic.py
-├── services/
-│   ├── extraction_service.py
-│   ├── question_service.py
-│   └── semantic_ranker.py
-└── main.py
+├── nlu/
+│   ├── client.py
+│   ├── extraction.py
+│   ├── questions.py
+│   ├── messages.py
+│   ├── preferences.py
+│   ├── postprocessing.py
+│   ├── geocoding.py
+│   ├── timezones.py
+│   ├── quick_replies.py
+│   └── prompts/
+└── semantic/
+    ├── model.py
+    └── ranking.py
+
+tests/
 ```
 
-* `api`: Definition der REST-Endpunkte
-* `schemas`: Pydantic-Modelle für Anfragen und Antworten
-* `services`: Fachliche Verarbeitung der Anfragen
-* `main.py`: Initialisierung und Konfiguration der FastAPI-Anwendung
+* `api/endpoints`: dünne HTTP-Schicht
+* `api/dependencies.py`: FastAPI-Komposition und austauschbare externe Abhängigkeiten
+* `core/config.py`: zentrale Settings und einziger Zugriff auf Umgebungsvariablen
+* `schemas`: Pydantic Request-/Response-Verträge und Enums
+* `nlu`: Mistral-, Prompt-, Geocoding- und Dialoglogik
+* `semantic`: Modell-Lifecycle und Ranking-Algorithmus
 
-## Logging
+Die blockierenden Mistral-, Geopy- und ML-Aufrufe werden bewusst über synchrone FastAPI-Handler
+aufgerufen; FastAPI führt diese im Threadpool aus.
 
-Der Microservice verwendet das Python-Modul `logging`. Die Log-Ausgaben enthalten Informationen über eingehende Anfragen, erzeugte Antworten sowie die Dauer des semantischen Rankings.
+## Qualität prüfen
 
-Die Logging-Konfiguration befindet sich in `src/main.py`.
+```powershell
+python -m ruff format --check src tests
+python -m ruff check src tests
+python -m mypy src
+python -m pytest -q
+```
 
-## Hinweise
+Die Tests ersetzen Mistral und das Embedding-Modell über FastAPI Dependency Overrides. Sie führen
+keine Netzwerkaufrufe und keinen Modelldownload aus.
 
-Der Microservice ist als Bestandteil einer prototypischen Systemerweiterung im Rahmen einer Bachelorarbeit entstanden. Der Quellcode dient der Dokumentation und Reproduzierbarkeit der implementierten Funktionen.
+## Container
 
-### Einsatz von Künstlicher Intelligenz
+Image bauen und starten:
 
-Bei der Erstellung und Überarbeitung einzelner Inhalte dieses Repositorys wurde Künstliche Intelligenz unterstützend eingesetzt. Dies betrifft insbesondere die Formulierung und sprachliche Überarbeitung von Dokumentationen, Kommentaren und beschreibenden Texten.
+```powershell
+docker compose build
+docker compose up
+```
 
-Die fachliche Prüfung, Anpassung und abschließende Verantwortung für sämtliche Inhalte lagen beim Autor des Projekts.
+Für NLU-Aufrufe muss `MISTRAL_API_KEY` in der Umgebung beziehungsweise lokalen `.env` gesetzt sein.
+Der Container stellt Port 8000 bereit und prüft `/health`.

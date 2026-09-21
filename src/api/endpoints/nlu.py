@@ -2,16 +2,17 @@ import logging
 
 from fastapi import APIRouter
 
-from src.services.extraction_service import ExtractionService
-from src.services.question_service import QuestionService
-from src.schemas.nlu import NluExtractRequest, LlmExtractResponse, NextQuestionRequest, NextQuestionResponse
+from src.api.dependencies import ExtractionServiceDep, QuestionServiceDep
+from src.schemas.nlu import (
+    LlmExtractResponse,
+    NextQuestionRequest,
+    NextQuestionResponse,
+    NluExtractRequest,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/nlu", tags=["NLU"])
-
-extraction_service = ExtractionService()
-question_service = QuestionService()
 
 
 @router.post(
@@ -19,7 +20,10 @@ question_service = QuestionService()
     summary="Extract NLU intent via Mistral LLM",
     response_model=LlmExtractResponse,
 )
-def extract_nlu(request: NluExtractRequest) -> LlmExtractResponse:
+def extract_nlu(
+    request: NluExtractRequest,
+    extraction_service: ExtractionServiceDep,
+) -> LlmExtractResponse:
     logger.debug("Incoming request: %s", request.model_dump())
     result = extraction_service.extract(
         message=request.message,
@@ -35,7 +39,10 @@ def extract_nlu(request: NluExtractRequest) -> LlmExtractResponse:
     summary="Generate next conversational question for a missing slot",
     response_model=NextQuestionResponse,
 )
-def next_question(request: NextQuestionRequest) -> NextQuestionResponse:
+def next_question(
+    request: NextQuestionRequest,
+    question_service: QuestionServiceDep,
+) -> NextQuestionResponse:
     logger.debug("Next question request: missingField=%s", request.missingField)
     result = question_service.generate_next_question(
         missing_field=request.missingField,

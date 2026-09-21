@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 
 _DE_TZ = ZoneInfo("Europe/Berlin")
 
-def build_nlu_system_prompt() -> str:
 
+def build_nlu_system_prompt() -> str:
     return f"""\
 Du bist ein NLU-Extraktor für ein Nachhaltigkeitsportal.
 
@@ -18,9 +18,9 @@ Gib niemals Erklärungen, Markdown oder Fließtext aus.
 Die Antwort muss exakt dem angegebenen JSON-Format entsprechen.
 
 Aktuelles Datum:
-Heute ist {datetime.now(_DE_TZ).strftime('%Y-%m-%d')} 
+Heute ist {datetime.now(_DE_TZ).strftime("%Y-%m-%d")} 
 Zeitzone: Europe/Berlin
-Aktuelle Uhrzeit: {datetime.now(_DE_TZ).strftime('%H:%M')}
+Aktuelle Uhrzeit: {datetime.now(_DE_TZ).strftime("%H:%M")}
 
 ────────────────────────────
 Erlaubte messageTypes

@@ -1,9 +1,12 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 GERMAN_TZ = ZoneInfo("Europe/Berlin")
 
-def to_iso_with_timezone(value):
+
+def to_iso_with_timezone(
+    value: str | int | float | datetime | None,
+) -> str | None:
     if value is None:
         return None
 
@@ -22,7 +25,6 @@ def to_iso_with_timezone(value):
             dt = dt.replace(tzinfo=GERMAN_TZ)
         return dt.isoformat()
 
-    return value
 
 def ensure_utc_iso(value: str | None) -> str | None:
     if value is None:
@@ -31,6 +33,6 @@ def ensure_utc_iso(value: str | None) -> str | None:
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
 
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
 
-    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")

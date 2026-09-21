@@ -4,14 +4,18 @@ Rangiert Kandidaten durch semantische Ähnlichkeit zwischen Nutzertext und Besch
 """
 
 import logging
+import time
+from collections.abc import Callable
+
 import numpy as np
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from src.schemas.semantic import (
-    SemanticRankRequestDto, SemanticRankResponseDto, 
-    NluRankItemDto
+    NluRankItemDto,
+    SemanticRankRequestDto,
+    SemanticRankResponseDto,
 )
-from src.services.model_loader import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +33,6 @@ def build_ranking_query(request: SemanticRankRequestDto) -> str:
     fallback_messages = []
 
     for dialog_message in request.dialogContext:
-        print(dialog_message)
         message_text = normalize_text(getattr(dialog_message, "message", None))
         if len(message_text) <= 1:
             continue
@@ -43,48 +46,44 @@ def build_ranking_query(request: SemanticRankRequestDto) -> str:
     source_messages = user_messages or fallback_messages
     query = normalize_text(" ".join(dict.fromkeys(source_messages)))
 
-    logger.debug(f"🔍 Optimized Query: '{query}'")
+    logger.debug("Optimized query: %r", query)
     return query
 
 
 def calculate_chunk_similarity(
     query_embedding: np.ndarray,
     text: str,
-    model
+    model: SentenceTransformer,
 ) -> float:
     """
     Teile langen Text in Sätze auf und berechne beste Similarity.
-    
+
     Nutzung: Wenn Beschreibung lang ist (> 200 Zeichen),
     könnte ein einzelner Satz perfekt zur Query passen.
     """
     # Teile in Sätze
     sentences = [
-        s.strip() 
-        for s in text.replace("!", ".").split(".") 
-        if s.strip() and len(s.strip()) > 10
+        s.strip() for s in text.replace("!", ".").split(".") if s.strip() and len(s.strip()) > 10
     ]
-    
+
     if not sentences or len(sentences) == 1:
         # Zu wenig oder nur 1 Satz: fallback auf normal
-        return float(cosine_similarity(
-            query_embedding.reshape(1, -1),
-            model.encode([text]).reshape(1, -1)
-        )[0][0])
-    
+        return float(
+            cosine_similarity(query_embedding.reshape(1, -1), model.encode([text]).reshape(1, -1))[
+                0
+            ][0]
+        )
+
     # Bei zu vielen Sätzen: sample Top-10 (zu viele = langsam)
     if len(sentences) > 10:
         sentences = sorted(sentences, key=len, reverse=True)[:10]
-    
+
     # Embedde alle Sätze
     chunk_embeddings = model.encode(sentences)
-    
+
     # Berechne Similarity zu jedem Chunk
-    similarities = cosine_similarity(
-        query_embedding.reshape(1, -1),
-        chunk_embeddings
-    )[0]
-    
+    similarities = cosine_similarity(query_embedding.reshape(1, -1), chunk_embeddings)[0]
+
     # Fokus auf die besten Treffer statt den Durchschnitt über alle Sätze.
     top_k = min(TOP_K_CHUNKS, len(similarities))
     top_k_similarities = np.sort(similarities)[-top_k:]
@@ -92,22 +91,27 @@ def calculate_chunk_similarity(
 
 
 def rank_semantically(
-        request: SemanticRankRequestDto
+    request: SemanticRankRequestDto,
+    model_provider: Callable[[], SentenceTransformer],
 ) -> SemanticRankResponseDto:
     """
     Rangiert Kandidaten basierend auf semantischer Ähnlichkeit.
-    
+
     Strategie:
     - 40% Haupttext-Ähnlichkeit
     - 60% Top-Chunk-Ähnlichkeit (bei langen Texten)
     """
+    start_time = time.perf_counter()
+    logger.info("Ranking request: %d candidates", len(request.candidates))
+
     if not request.candidates:
         return SemanticRankResponseDto(results=[])
 
-    print("req", request)
     query_text = build_ranking_query(request)
     if not query_text:
-        logger.info("Keine Benutzer-Keywords im Dialogkontext gefunden - alle Kandidaten erhalten Score 0.0")
+        logger.info(
+            "Keine Benutzer-Keywords im Dialogkontext gefunden - alle Kandidaten erhalten Score 0.0"
+        )
         return SemanticRankResponseDto(
             results=[
                 NluRankItemDto(id=candidate.id, semanticScore=0.0)
@@ -115,51 +119,54 @@ def rank_semantically(
             ]
         )
 
-    model = get_model()
-
-    candidate_texts = [
-        normalize_text(candidate.description)
-        for candidate in request.candidates
-    ]
+    model = model_provider()
+    candidate_texts = [normalize_text(candidate.description) for candidate in request.candidates]
     query_embedding = model.encode([query_text])[0]
     candidate_embeddings = model.encode(candidate_texts)
 
     results = []
-    
+
     for candidate, cand_embedding, cand_text in zip(
-        request.candidates, candidate_embeddings, candidate_texts
+        request.candidates, candidate_embeddings, candidate_texts, strict=False
     ):
-        scores = {}
-        
+        scores: dict[str, float] = {}
+
         # Score 1: Haupt-Text Similarity (40%)
-        main_sim = float(cosine_similarity(
-            query_embedding.reshape(1, -1),
-            cand_embedding.reshape(1, -1)
-        )[0][0])
-        scores['main'] = main_sim * MAIN_SIM_WEIGHT
-        
+        main_sim = float(
+            cosine_similarity(query_embedding.reshape(1, -1), cand_embedding.reshape(1, -1))[0][0]
+        )
+        scores["main"] = main_sim * MAIN_SIM_WEIGHT
+
         # Score 2: Chunked Similarity für längere Texte (60%)
         if len(cand_text) > 200:
-            chunk_sim = calculate_chunk_similarity(
-                query_embedding, cand_text, model
-            )
-            scores['chunks'] = chunk_sim * CHUNK_SIM_WEIGHT
+            chunk_sim = calculate_chunk_similarity(query_embedding, cand_text, model)
+            scores["chunks"] = chunk_sim * CHUNK_SIM_WEIGHT
         else:
-            scores['chunks'] = main_sim * CHUNK_SIM_WEIGHT
-        
+            scores["chunks"] = main_sim * CHUNK_SIM_WEIGHT
+
         final_score = sum(scores.values())
-        
-        results.append(NluRankItemDto(
-            id=candidate.id,
-            semanticScore=normalize_similarity(final_score)
-        ))
-        
-        logger.debug(f"📊 Candidate {candidate.id}: main={scores['main']:.3f}, "
-                     f"chunks={scores['chunks']:.3f} → total={final_score:.3f}")
+
+        results.append(
+            NluRankItemDto(id=candidate.id, semanticScore=normalize_similarity(final_score))
+        )
+
+        logger.debug(
+            "Candidate %d: main=%.3f, chunks=%.3f, total=%.3f",
+            candidate.id,
+            scores["main"],
+            scores["chunks"],
+            final_score,
+        )
 
     # Sortiere nach Score (descending)
     results.sort(key=lambda item: item.semanticScore, reverse=True)
 
+    elapsed_time = time.perf_counter() - start_time
+    logger.info(
+        "Ranking response: %d results in %.3fs",
+        len(results),
+        elapsed_time,
+    )
     return SemanticRankResponseDto(results=results)
 
 
@@ -175,15 +182,14 @@ def normalize_text(value: str | None) -> str:
 def normalize_similarity(value: float) -> float:
     """
     Normalisiert Ähnlichkeitsscore auf 0-1 Bereich.
-    
+
     Cosine Similarity liegt theoretisch zwischen -1 und 1.
     Für Ranking wird sie auf 0 bis 1 begrenzt.
-    
+
     Args:
         value: Ähnlichkeitswert
-    
+
     Returns:
         Normalisierter Wert im Range [0, 1]
     """
     return max(0.0, min(1.0, value))
-

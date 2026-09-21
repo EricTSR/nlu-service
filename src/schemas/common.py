@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Set
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -17,49 +17,48 @@ from src.schemas.enums import (
 class PeriodDto(BaseModel):
     @field_validator("start", "end", mode="before")
     @classmethod
-    def convert_timestamp(cls, value):
+    def convert_timestamp(cls, value: Any) -> Any:
         if value is None:
             return None
         if isinstance(value, (int, float)):
             return datetime.fromtimestamp(value).isoformat()
         return value
 
-    start: Optional[str] = Field(None)
-    end: Optional[str] = Field(None)
-    start_time: Optional[str] = Field(None)
-    end_time: Optional[str] = Field(None)
-    permanent: Optional[bool] = Field(False)
+    start: str | None = Field(None)
+    end: str | None = Field(None)
+    start_time: str | None = Field(None)
+    end_time: str | None = Field(None)
+    permanent: bool | None = Field(False)
 
 
 class LocationFilterDto(BaseModel):
-    city: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    radius: Optional[float] = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    radius: float | None = None
 
 
 class PreferenceContextDto(BaseModel):
-    intent: Optional[str] = None
-    location: Optional[LocationFilterDto] = None
-    online: Optional[bool] = None
+    intent: str | None = None
+    location: LocationFilterDto | None = None
+    online: bool | None = None
     period: PeriodDto = Field(default_factory=PeriodDto)
-    sdgs: List[int] = Field(default_factory=list)
-    thematicFocus: Optional[ThematicFocusDto] = None
-    impactArea: Optional[ImpactAreaDto] = None
-    awards: Optional[List[Award]] = None
-    offerCategory: Optional[OfferCategory] = None
-    bestPractiseCategory: Optional[BestPractiseCategory] = None
-    confidence: Optional[float] = None
-    handledFields: Set[SlotFields] = Field(default_factory=set)
-    pendingField: Optional[SlotFields] = None
+    sdgs: list[int] = Field(default_factory=list)
+    thematicFocus: ThematicFocusDto | None = None
+    impactArea: ImpactAreaDto | None = None
+    awards: list[Award] | None = None
+    offerCategory: OfferCategory | None = None
+    bestPractiseCategory: BestPractiseCategory | None = None
+    confidence: float | None = None
+    handledFields: set[SlotFields] = Field(default_factory=set)
+    pendingField: SlotFields | None = None
 
 
 class DialogMessage(BaseModel):
-    number: Optional[int] = None
-    message: Optional[str] = None
-    sender: Optional[str] = None
-    quickReplies: Optional[List[str]] = None
-    messageType: Optional[MessageType] = None
-
+    number: int | None = None
+    message: str | None = None
+    sender: str | None = None
+    quickReplies: list[str] | None = None
+    messageType: MessageType | None = None

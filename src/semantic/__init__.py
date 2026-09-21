@@ -1,0 +1,1 @@
+"""Semantic ranking domain."""

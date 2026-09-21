@@ -1,5 +1,3 @@
-from typing import List, Optional, Set
-
 from pydantic import BaseModel, Field
 
 from src.schemas.common import DialogMessage, LocationFilterDto, PeriodDto, PreferenceContextDto
@@ -16,39 +14,38 @@ from src.schemas.enums import (
 
 class NluExtractRequest(BaseModel):
     message: str
-    dialogContext: List[DialogMessage] = Field(default_factory=list)
-    title: Optional[str] = None
+    dialogContext: list[DialogMessage] = Field(default_factory=list)
+    title: str | None = None
     preferences: PreferenceContextDto = Field(default_factory=PreferenceContextDto)
 
 
 class LlmExtractResponse(BaseModel):
-    title: Optional[str] = None
+    title: str | None = None
     messageType: MessageType
     shouldExtractSlots: bool
-    intent: Optional[str] = None
-    location: Optional[LocationFilterDto] = None
-    online: Optional[bool] = None
+    intent: str | None = None
+    location: LocationFilterDto | None = None
+    online: bool | None = None
     period: PeriodDto = Field(default_factory=PeriodDto)
-    sdgs: List[int] = Field(default_factory=list)
-    thematicFocus: Optional[ThematicFocusDto] = None
-    impactArea: Optional[ImpactAreaDto] = None
-    awards: Optional[List[Award]] = None
-    offerCategory: Optional[OfferCategory] = None
-    bestPractiseCategory: Optional[BestPractiseCategory] = None
-    confidence: Optional[float] = None
-    handledFields: Set[SlotFields] = Field(default_factory=set)
+    sdgs: list[int] = Field(default_factory=list)
+    thematicFocus: ThematicFocusDto | None = None
+    impactArea: ImpactAreaDto | None = None
+    awards: list[Award] | None = None
+    offerCategory: OfferCategory | None = None
+    bestPractiseCategory: BestPractiseCategory | None = None
+    confidence: float | None = None
+    handledFields: set[SlotFields] = Field(default_factory=set)
 
 
 class NextQuestionRequest(BaseModel):
-    missingField: Optional[SlotFields] = None
+    missingField: SlotFields | None = None
     message: MessageType
     readyForSearch: bool
     preferences: PreferenceContextDto
-    dialogContext: List[DialogMessage] = Field(default_factory=list)
+    dialogContext: list[DialogMessage] = Field(default_factory=list)
 
 
 class NextQuestionResponse(BaseModel):
     answer: str
-    quickReplies: List[str] = Field(default_factory=list)
+    quickReplies: list[str] = Field(default_factory=list)
     preferences: PreferenceContextDto
-

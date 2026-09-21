@@ -1,5 +1,6 @@
 from src.schemas.common import DialogMessage, LocationFilterDto, PeriodDto, PreferenceContextDto
 from src.schemas.enums import (
+    SDG,
     Award,
     BestPractiseCategory,
     ImpactAreaDto,
@@ -7,7 +8,6 @@ from src.schemas.enums import (
     MessageType,
     OfferCategory,
     Recommendation,
-    SDG,
     SlotFields,
     ThematicFocusDto,
 )
@@ -18,7 +18,12 @@ from src.schemas.nlu import (
     NextQuestionResponse,
     NluExtractRequest,
 )
-from src.schemas.semantic import Candidate, NluRankItemDto, SemanticRankRequestDto, SemanticRankResponseDto
+from src.schemas.semantic import (
+    Candidate,
+    NluRankItemDto,
+    SemanticRankRequestDto,
+    SemanticRankResponseDto,
+)
 
 __all__ = [
     "Award",
@@ -45,4 +50,3 @@ __all__ = [
     "SlotFields",
     "ThematicFocusDto",
 ]
-

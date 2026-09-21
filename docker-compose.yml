@@ -6,9 +6,10 @@ services:
       - "8000:8000"
     restart: unless-stopped
     environment:
-      - PYTHONUNBUFFERED=1
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      PYTHONUNBUFFERED: 1
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
